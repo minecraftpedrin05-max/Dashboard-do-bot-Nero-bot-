@@ -6,6 +6,7 @@ const MANAGE_GUILD = 0x20n;
 const ADMINISTRATOR = 0x8n;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Discord({
       authorization: { params: { scope: "identify guilds" } },
