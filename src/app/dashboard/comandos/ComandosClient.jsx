@@ -401,9 +401,9 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
           {b.action_type === "ai" && (
             <div className="bg-bg border border-border rounded-lg p-3 mb-2">
               <p className="text-xs text-muted mb-2">
-                🤖 A resposta é gerada por IA (Claude) na hora, seguindo a instrução abaixo. Ela só gera texto — não
+                🤖 A resposta é gerada por IA (Groq) na hora, seguindo a instrução abaixo. Ela só gera texto — não
                 consegue banir, expulsar nem apagar nada de verdade, mesmo que a instrução peça. Precisa da variável{" "}
-                <code className="text-[11px] bg-surface px-1 rounded">ANTHROPIC_API_KEY</code> configurada no Railway.
+                <code className="text-[11px] bg-surface px-1 rounded">GROQ_API_KEY</code> configurada no Railway.
               </p>
               <label className="block">
                 <span className="block text-xs text-muted mb-1">O que a IA deve fazer quando clicarem</span>
