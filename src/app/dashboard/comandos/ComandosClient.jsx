@@ -405,7 +405,7 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
                 consegue banir, expulsar nem apagar nada de verdade, mesmo que a instrução peça. Precisa da variável{" "}
                 <code className="text-[11px] bg-surface px-1 rounded">GROQ_API_KEY</code> configurada no Railway.
               </p>
-              <label className="block">
+              <label className="block mb-2">
                 <span className="block text-xs text-muted mb-1">O que a IA deve fazer quando clicarem</span>
                 <textarea
                   className={inputClass}
@@ -414,6 +414,14 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
                   onChange={(e) => updateButton(i, { output_template: e.target.value })}
                   placeholder="Ex: dê boas-vindas de um jeito engraçado e pergunte qual é o jogo favorito da pessoa"
                 />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={!!b.ai_open_ticket}
+                  onChange={(e) => updateButton(i, { ai_open_ticket: e.target.checked })}
+                />
+                Também abrir um ticket de verdade (canal privado) além de responder o texto acima
               </label>
             </div>
           )}

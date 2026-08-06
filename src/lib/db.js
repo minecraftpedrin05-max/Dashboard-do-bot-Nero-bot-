@@ -99,6 +99,7 @@ for (const stmt of [
   "ALTER TABLE custom_command_buttons ADD COLUMN multi INTEGER DEFAULT 0",
   "ALTER TABLE custom_commands ADD COLUMN is_public INTEGER DEFAULT 1",
   "ALTER TABLE custom_command_buttons ADD COLUMN ai_mode INTEGER DEFAULT 0",
+  "ALTER TABLE custom_command_buttons ADD COLUMN ai_open_ticket INTEGER DEFAULT 0",
 ]) {
   try {
     db.exec(stmt);
@@ -268,8 +269,8 @@ export function setCommandButtons(commandId, buttons) {
   db.prepare("DELETE FROM custom_command_buttons WHERE command_id = ?").run(commandId);
   const insert = db.prepare(
     `INSERT INTO custom_command_buttons
-     (command_id, label, style, emoji, action_type, modal_id, url, order_index, options_json, output_template, multi, ai_mode)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     (command_id, label, style, emoji, action_type, modal_id, url, order_index, options_json, output_template, multi, ai_mode, ai_open_ticket)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   buttons.forEach((b, i) => {
     const needsTemplate = b.action_type === "select" || b.action_type === "ticket" || b.action_type === "ai";
@@ -285,7 +286,8 @@ export function setCommandButtons(commandId, buttons) {
       b.action_type === "select" ? JSON.stringify(b.options || []) : null,
       needsTemplate ? b.output_template || "" : null,
       b.action_type === "select" && b.multi ? 1 : 0,
-      b.action_type === "select" && b.ai_mode ? 1 : 0
+      b.action_type === "select" && b.ai_mode ? 1 : 0,
+      b.action_type === "ai" && b.ai_open_ticket ? 1 : 0
     );
   });
 }

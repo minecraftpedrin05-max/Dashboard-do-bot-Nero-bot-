@@ -29,6 +29,45 @@ import {
 } from "./db.js";
 import { generateAIReply } from "./ai.js";
 
+// Cria o canal privado de ticket (mesma lógica usada pelo botão "Ticket").
+// Isso é código determinístico e controlado — não é a IA decidindo executar
+// isso, é o admin que liga essa opção no dashboard para o botão de IA.
+async function createTicketChannel(interaction, welcomeTemplate) {
+  const safeName = interaction.user.username
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .slice(0, 20);
+  const channelName = `ticket-${safeName}-${interaction.user.discriminator !== "0" ? interaction.user.discriminator : interaction.user.id.slice(-4)}`;
+
+  const channel = await interaction.guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildText,
+    permissionOverwrites: [
+      { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+        ],
+      },
+    ],
+  });
+
+  const welcome = (welcomeTemplate || "Olá {user}, um membro da equipe vai te atender em breve!").replaceAll(
+    "{user}",
+    `<@${interaction.user.id}>`
+  );
+
+  const closeRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`ticketclose_${channel.id}`).setLabel("Fechar Ticket").setStyle(ButtonStyle.Danger)
+  );
+
+  await channel.send({ content: welcome, components: [closeRow] });
+  return channel;
+}
+
 export async function startBot() {
   // Next.js can call register() more than once (dev hot-reload, multiple
   // workers). Guard with a global so we never log in twice.
@@ -55,8 +94,22 @@ export async function startBot() {
     client.commands.set(command.data.name, command);
   }
 
-  client.once(Events.ClientReady, (c) => {
+  client.once(Events.ClientReady, async (c) => {
     console.log(`[bot] online como ${c.user.tag}`);
+
+    // Registra os comandos slash GLOBALMENTE toda vez que o bot liga, assim
+    // eles aparecem sozinhos em qualquer servidor onde o bot for adicionado
+    // (dono não precisa rodar nenhum script nem configurar servidor por
+    // servidor). Pode levar até ~1h pra propagar da primeira vez.
+    try {
+      const { REST, Routes } = await import("discord.js");
+      const body = commands.map((cmd) => cmd.data.toJSON());
+      const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_BOT_TOKEN);
+      await rest.put(Routes.applicationCommands(c.user.id), { body });
+      console.log(`[bot] ${body.length} comandos registrados globalmente`);
+    } catch (err) {
+      console.error("[bot] falha ao registrar comandos globalmente:", err);
+    }
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -200,50 +253,33 @@ export async function startBot() {
         const button = getCommandButton(buttonId);
         if (!button) return;
 
-        // Botão de IA: gera uma resposta em texto a partir da instrução do admin
+        // Botão de IA: gera uma resposta em texto a partir da instrução do admin.
+        // Se o admin ligou "ai_open_ticket" na configuração do botão, também abre
+        // um ticket de verdade — usando o mesmo código determinístico do botão
+        // "Ticket" (a IA não decide isso sozinha, é uma opção fixa do admin).
         if (button.action_type === "ai") {
-          await interaction.deferReply();
+          const wantsTicket = !!button.ai_open_ticket;
+          await interaction.deferReply({ ephemeral: wantsTicket });
           const reply = await generateAIReply(button.output_template, { username: interaction.user.username });
-          await interaction.editReply({ content: reply });
+
+          if (wantsTicket) {
+            try {
+              const channel = await createTicketChannel(interaction, null);
+              await interaction.editReply({ content: `${reply}\n\n✅ Ticket criado: <#${channel.id}>` });
+            } catch (err) {
+              console.error("[bot] erro ao abrir ticket via botão de IA:", err);
+              await interaction.editReply({ content: `${reply}\n\n⚠️ Não consegui abrir o ticket agora.` });
+            }
+          } else {
+            await interaction.editReply({ content: reply });
+          }
           return;
         }
 
         // Botão de ticket: cria um canal privado (só a pessoa + admins veem)
         if (button.action_type === "ticket") {
           await interaction.deferReply({ ephemeral: true });
-
-          const safeName = interaction.user.username
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, "-")
-            .slice(0, 20);
-          const channelName = `ticket-${safeName}-${interaction.user.discriminator !== "0" ? interaction.user.discriminator : interaction.user.id.slice(-4)}`;
-
-          const channel = await interaction.guild.channels.create({
-            name: channelName,
-            type: ChannelType.GuildText,
-            permissionOverwrites: [
-              { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-              {
-                id: interaction.user.id,
-                allow: [
-                  PermissionFlagsBits.ViewChannel,
-                  PermissionFlagsBits.SendMessages,
-                  PermissionFlagsBits.ReadMessageHistory,
-                ],
-              },
-              // Admins do servidor sempre enxergam o canal automaticamente
-              // (a permissão de Administrador ignora essas restrições no Discord).
-            ],
-          });
-
-          const welcome = (button.output_template || "Olá {user}, um membro da equipe vai te atender em breve!")
-            .replaceAll("{user}", `<@${interaction.user.id}>`);
-
-          const closeRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticketclose_${channel.id}`).setLabel("Fechar Ticket").setStyle(ButtonStyle.Danger)
-          );
-
-          await channel.send({ content: welcome, components: [closeRow] });
+          const channel = await createTicketChannel(interaction, button.output_template);
           await interaction.editReply({ content: `✅ Ticket criado: <#${channel.id}>` });
           return;
         }
