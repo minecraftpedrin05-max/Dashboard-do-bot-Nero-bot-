@@ -15,6 +15,9 @@ import leaderboard from "./xp/leaderboard.js";
 import custom from "./custom.js";
 import setguild from "./setguild.js";
 
+import avatar from "./misc/avatar.js";
+import serverinfo from "./misc/serverinfo.js";
+
 export const commands = [
   ban,
   kick,
@@ -29,4 +32,6 @@ export const commands = [
   leaderboard,
   custom,
   setguild,
+  avatar,
+  serverinfo,
 ];

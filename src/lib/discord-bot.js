@@ -11,6 +11,8 @@ import {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
+  PermissionFlagsBits,
+  ChannelType,
 } from "discord.js";
 import { commands } from "../bot/commands/index.js";
 import {
@@ -25,6 +27,7 @@ import {
   setUserGuild,
   getUserGuild,
 } from "./db.js";
+import { generateAIReply } from "./ai.js";
 
 export async function startBot() {
   // Next.js can call register() more than once (dev hot-reload, multiple
@@ -195,7 +198,57 @@ export async function startBot() {
       try {
         const buttonId = Number(interaction.customId.replace("cmdbtn_", ""));
         const button = getCommandButton(buttonId);
-        if (!button || button.action_type !== "modal" || !button.modal_id) return;
+        if (!button) return;
+
+        // Botão de IA: gera uma resposta em texto a partir da instrução do admin
+        if (button.action_type === "ai") {
+          await interaction.deferReply();
+          const reply = await generateAIReply(button.output_template, { username: interaction.user.username });
+          await interaction.editReply({ content: reply });
+          return;
+        }
+
+        // Botão de ticket: cria um canal privado (só a pessoa + admins veem)
+        if (button.action_type === "ticket") {
+          await interaction.deferReply({ ephemeral: true });
+
+          const safeName = interaction.user.username
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "-")
+            .slice(0, 20);
+          const channelName = `ticket-${safeName}-${interaction.user.discriminator !== "0" ? interaction.user.discriminator : interaction.user.id.slice(-4)}`;
+
+          const channel = await interaction.guild.channels.create({
+            name: channelName,
+            type: ChannelType.GuildText,
+            permissionOverwrites: [
+              { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+              {
+                id: interaction.user.id,
+                allow: [
+                  PermissionFlagsBits.ViewChannel,
+                  PermissionFlagsBits.SendMessages,
+                  PermissionFlagsBits.ReadMessageHistory,
+                ],
+              },
+              // Admins do servidor sempre enxergam o canal automaticamente
+              // (a permissão de Administrador ignora essas restrições no Discord).
+            ],
+          });
+
+          const welcome = (button.output_template || "Olá {user}, um membro da equipe vai te atender em breve!")
+            .replaceAll("{user}", `<@${interaction.user.id}>`);
+
+          const closeRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ticketclose_${channel.id}`).setLabel("Fechar Ticket").setStyle(ButtonStyle.Danger)
+          );
+
+          await channel.send({ content: welcome, components: [closeRow] });
+          await interaction.editReply({ content: `✅ Ticket criado: <#${channel.id}>` });
+          return;
+        }
+
+        if (button.action_type !== "modal" || !button.modal_id) return;
 
         const modal = getModal(button.modal_id);
         const fields = listModalFields(button.modal_id);
@@ -227,6 +280,25 @@ export async function startBot() {
       return;
     }
 
+    // Fechar um ticket -> só admin ou quem tem acesso ao canal pode fechar
+    if (interaction.isButton() && interaction.customId.startsWith("ticketclose_")) {
+      try {
+        const isAdmin = interaction.member?.permissions?.has(PermissionFlagsBits.Administrator);
+        const canView = interaction.channel
+          ?.permissionsFor(interaction.user)
+          ?.has(PermissionFlagsBits.ViewChannel);
+        if (!isAdmin && !canView) {
+          await interaction.reply({ content: "Você não pode fechar esse ticket.", ephemeral: true });
+          return;
+        }
+        await interaction.reply({ content: "🔒 Fechando ticket em 5 segundos..." });
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+      } catch (err) {
+        console.error("[bot] erro ao fechar ticket:", err);
+      }
+      return;
+    }
+
     // Select menu de um comando personalizado -> monta a mensagem de saída
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith("cmdselect_")) {
       try {
@@ -235,6 +307,17 @@ export async function startBot() {
         if (!button) return;
 
         const selected = interaction.values.join(", ");
+
+        if (button.ai_mode) {
+          await interaction.deferReply({ ephemeral: true });
+          const reply = await generateAIReply(button.output_template, {
+            username: interaction.user.username,
+            selected,
+          });
+          await interaction.editReply({ content: reply });
+          return;
+        }
+
         let output = button.output_template || "Você escolheu: {selecionado}";
         output = output.replaceAll("{selecionado}", selected);
 

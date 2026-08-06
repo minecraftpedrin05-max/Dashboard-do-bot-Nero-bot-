@@ -220,7 +220,8 @@ function CommandPreview({ command }) {
                     b.action_type === "link" ? "opacity-90" : ""
                   }`}
                 >
-                  {b.label || "botão"} {b.action_type === "link" ? "↗" : ""}
+                  {b.label || (b.action_type === "ticket" ? "🎫 Abrir ticket" : b.action_type === "ai" ? "🤖 " + (b.label || "IA") : "botão")}{" "}
+                  {b.action_type === "link" ? "↗" : ""}
                 </span>
               ))}
             </div>
@@ -233,6 +234,7 @@ function CommandPreview({ command }) {
                 <span className="text-[#949BA4]">▾</span>
               </div>
               <p className="text-[10px] text-[#949BA4] mt-0.5">
+                {s.ai_mode ? "🤖 resposta gerada por IA · " : ""}
                 {s.multi ? "pode escolher várias opções" : "escolhe só uma opção"} · {(s.options || []).length} opç
                 {(s.options || []).length === 1 ? "ão" : "ões"}
               </p>
@@ -369,6 +371,8 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
               <option value="modal">Abrir formulário</option>
               <option value="link">Abrir link</option>
               <option value="select">Menu de seleção</option>
+              <option value="ticket">Abrir ticket (canal privado)</option>
+              <option value="ai">IA responde (texto)</option>
             </select>
             {b.action_type === "modal" && (
               <select
@@ -393,6 +397,47 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
               />
             )}
           </div>
+
+          {b.action_type === "ai" && (
+            <div className="bg-bg border border-border rounded-lg p-3 mb-2">
+              <p className="text-xs text-muted mb-2">
+                🤖 A resposta é gerada por IA (Claude) na hora, seguindo a instrução abaixo. Ela só gera texto — não
+                consegue banir, expulsar nem apagar nada de verdade, mesmo que a instrução peça. Precisa da variável{" "}
+                <code className="text-[11px] bg-surface px-1 rounded">ANTHROPIC_API_KEY</code> configurada no Railway.
+              </p>
+              <label className="block">
+                <span className="block text-xs text-muted mb-1">O que a IA deve fazer quando clicarem</span>
+                <textarea
+                  className={inputClass}
+                  rows={3}
+                  value={b.output_template || ""}
+                  onChange={(e) => updateButton(i, { output_template: e.target.value })}
+                  placeholder="Ex: dê boas-vindas de um jeito engraçado e pergunte qual é o jogo favorito da pessoa"
+                />
+              </label>
+            </div>
+          )}
+
+          {b.action_type === "ticket" && (
+            <div className="bg-bg border border-border rounded-lg p-3 mb-2">
+              <p className="text-xs text-muted mb-2">
+                Cria um canal privado que só a pessoa que clicou e os admins conseguem ver. Ele mesmo aparece um
+                botão "Fechar Ticket" dentro do canal.
+              </p>
+              <label className="block">
+                <span className="block text-xs text-muted mb-1">
+                  Mensagem de boas-vindas dentro do ticket (use {"{user}"} pra mencionar a pessoa)
+                </span>
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={b.output_template || ""}
+                  onChange={(e) => updateButton(i, { output_template: e.target.value })}
+                  placeholder="Olá {user}, um membro da equipe vai te atender em breve!"
+                />
+              </label>
+            </div>
+          )}
 
           {b.action_type === "select" && (
             <div className="bg-bg border border-border rounded-lg p-3 mb-2">
@@ -460,16 +505,31 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
                 + adicionar opção
               </button>
 
-              <label className="block mt-3">
+              <label className="flex items-center gap-2 mt-3 mb-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!b.ai_mode}
+                  onChange={(e) => updateButton(i, { ai_mode: e.target.checked })}
+                />
+                <span className="text-xs text-muted">🤖 deixar a IA gerar a resposta (em vez de texto fixo)</span>
+              </label>
+
+              <label className="block mt-1">
                 <span className="block text-xs text-muted mb-1">
-                  Mensagem enviada depois de escolher (use {"{selecionado}"} pra mostrar a opção)
+                  {b.ai_mode
+                    ? "O que a IA deve fazer com base na opção escolhida"
+                    : <>Mensagem enviada depois de escolher (use {"{selecionado}"} pra mostrar a opção)</>}
                 </span>
                 <textarea
                   className={inputClass}
                   rows={2}
                   value={b.output_template || ""}
                   onChange={(e) => updateButton(i, { output_template: e.target.value })}
-                  placeholder="Você escolheu: {selecionado}"
+                  placeholder={
+                    b.ai_mode
+                      ? "Ex: comente de forma divertida sobre a opção que a pessoa escolheu"
+                      : "Você escolheu: {selecionado}"
+                  }
                 />
               </label>
             </div>
