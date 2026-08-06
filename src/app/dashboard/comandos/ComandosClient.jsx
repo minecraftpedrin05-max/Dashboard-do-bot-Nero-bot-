@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import NavDrawer from "../NavDrawer.jsx";
 
 function slugKey(v) {
   return v
@@ -148,7 +149,7 @@ function ModalEditor({ modal, onChange, onSave, onDelete, saving }) {
           type="button"
           disabled={saving}
           onClick={onSave}
-          className="text-sm bg-accent text-bg font-semibold rounded-lg px-4 py-2"
+          className="text-sm bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2 transition"
         >
           {saving ? "salvando…" : "Salvar formulário"}
         </button>
@@ -159,6 +160,87 @@ function ModalEditor({ modal, onChange, onSave, onDelete, saving }) {
         )}
       </div>
     </Card>
+  );
+}
+
+const STYLE_LOOK = {
+  Primary: "bg-[#5865F2] text-white",
+  Secondary: "bg-[#4E5058] text-white",
+  Success: "bg-[#248046] text-white",
+  Danger: "bg-[#DA373C] text-white",
+};
+
+function CommandPreview({ command }) {
+  const botName = process.env.NEXT_PUBLIC_BOT_NAME || "Meu Bot";
+  const normalButtons = command.buttons.filter((b) => b.action_type !== "select");
+  const selectMenus = command.buttons.filter((b) => b.action_type === "select");
+
+  return (
+    <div className="bg-[#313338] rounded-2xl p-4 sticky top-4">
+      <p className="text-xs text-muted mb-3 font-mono">
+        preview — como vai aparecer no Discord {command.is_public === false ? "🔒 (só quem usou vê)" : "🌐 (todo mundo vê)"}
+      </p>
+      <div className="flex gap-3">
+        <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-display font-bold shrink-0">
+          {botName.slice(0, 1).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[#F2F3F5] font-semibold text-sm">{botName}</span>
+            <span className="bg-accent text-white text-[10px] font-semibold px-1.5 py-[1px] rounded">BOT</span>
+            <span className="text-[#949BA4] text-xs">agora</span>
+          </div>
+
+          {(command.title || command.body_text || command.image_url) && (
+            <div
+              className="mt-1.5 rounded bg-[#2B2D31] pl-3 pr-4 py-3 border-l-4 max-w-sm"
+              style={{ borderColor: command.color || "#5865F2" }}
+            >
+              {command.title && <p className="text-[#F2F3F5] font-semibold text-sm mb-1">{command.title}</p>}
+              {command.body_text && (
+                <p className="text-[#DBDEE1] text-sm whitespace-pre-wrap">{command.body_text}</p>
+              )}
+              {command.image_url && (
+                <img
+                  src={command.image_url}
+                  alt=""
+                  className="mt-2 rounded max-h-40 object-cover"
+                  onError={(e) => (e.target.style.display = "none")}
+                />
+              )}
+            </div>
+          )}
+
+          {normalButtons.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2 max-w-sm">
+              {normalButtons.map((b, i) => (
+                <span
+                  key={i}
+                  className={`text-xs font-medium px-3 py-1.5 rounded ${STYLE_LOOK[b.style] || STYLE_LOOK.Primary} ${
+                    b.action_type === "link" ? "opacity-90" : ""
+                  }`}
+                >
+                  {b.label || "botão"} {b.action_type === "link" ? "↗" : ""}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {selectMenus.map((s, i) => (
+            <div key={i} className="mt-2 max-w-sm">
+              <div className="bg-[#383A40] border border-black/20 rounded px-3 py-2 flex items-center justify-between text-sm text-[#DBDEE1]">
+                <span>{s.label || "Escolha uma opção"}</span>
+                <span className="text-[#949BA4]">▾</span>
+              </div>
+              <p className="text-[10px] text-[#949BA4] mt-0.5">
+                {s.multi ? "pode escolher várias opções" : "escolhe só uma opção"} · {(s.options || []).length} opç
+                {(s.options || []).length === 1 ? "ão" : "ões"}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -228,26 +310,55 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
         />
       </Field>
 
+      <Field label="Quem vê a resposta">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onChange({ ...command, is_public: true })}
+            className={`text-sm rounded-lg px-3 py-1.5 border transition ${
+              command.is_public !== false
+                ? "bg-accent border-accent text-white font-semibold"
+                : "border-border text-muted hover:text-ink"
+            }`}
+          >
+            🌐 Todo mundo vê
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ ...command, is_public: false })}
+            className={`text-sm rounded-lg px-3 py-1.5 border transition ${
+              command.is_public === false
+                ? "bg-accent border-accent text-white font-semibold"
+                : "border-border text-muted hover:text-ink"
+            }`}
+          >
+            🔒 Só quem usou
+          </button>
+        </div>
+      </Field>
+
       <p className="text-sm text-muted mb-2">Botões</p>
       {command.buttons.map((b, i) => (
         <div key={i} className="border border-border rounded-lg p-3 mb-2">
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          <div className={b.action_type === "select" ? "mb-2" : "grid grid-cols-2 gap-2 mb-2"}>
             <input
               className={inputClass}
               value={b.label}
               onChange={(e) => updateButton(i, { label: e.target.value })}
-              placeholder="texto do botão"
+              placeholder={b.action_type === "select" ? "texto do placeholder (ex: Escolha uma opção)" : "texto do botão"}
             />
-            <select
-              className={inputClass}
-              value={b.style}
-              onChange={(e) => updateButton(i, { style: e.target.value })}
-            >
-              <option value="Primary">Azul</option>
-              <option value="Secondary">Cinza</option>
-              <option value="Success">Verde</option>
-              <option value="Danger">Vermelho</option>
-            </select>
+            {b.action_type !== "select" && (
+              <select
+                className={inputClass}
+                value={b.style}
+                onChange={(e) => updateButton(i, { style: e.target.value })}
+              >
+                <option value="Primary">Azul</option>
+                <option value="Secondary">Cinza</option>
+                <option value="Success">Verde</option>
+                <option value="Danger">Vermelho</option>
+              </select>
+            )}
           </div>
           <div className="flex gap-2 mb-2">
             <select
@@ -257,8 +368,9 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
             >
               <option value="modal">Abrir formulário</option>
               <option value="link">Abrir link</option>
+              <option value="select">Menu de seleção</option>
             </select>
-            {b.action_type === "modal" ? (
+            {b.action_type === "modal" && (
               <select
                 className={inputClass}
                 value={b.modal_id || ""}
@@ -271,7 +383,8 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
                   </option>
                 ))}
               </select>
-            ) : (
+            )}
+            {b.action_type === "link" && (
               <input
                 className={inputClass}
                 value={b.url || ""}
@@ -280,6 +393,88 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
               />
             )}
           </div>
+
+          {b.action_type === "select" && (
+            <div className="bg-bg border border-border rounded-lg p-3 mb-2">
+              <p className="text-xs text-muted mb-2">Opções do menu</p>
+
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => updateButton(i, { multi: false })}
+                  className={`text-xs rounded-lg px-2.5 py-1 border transition ${
+                    !b.multi ? "bg-accent border-accent text-white font-semibold" : "border-border text-muted"
+                  }`}
+                >
+                  escolhe só 1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateButton(i, { multi: true })}
+                  className={`text-xs rounded-lg px-2.5 py-1 border transition ${
+                    b.multi ? "bg-accent border-accent text-white font-semibold" : "border-border text-muted"
+                  }`}
+                >
+                  pode escolher várias
+                </button>
+              </div>
+              {(b.options || []).map((opt, oi) => (
+                <div key={oi} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-1.5">
+                  <input
+                    className={inputClass}
+                    value={opt.label}
+                    onChange={(e) => {
+                      const options = [...(b.options || [])];
+                      options[oi] = { ...options[oi], label: e.target.value };
+                      updateButton(i, { options });
+                    }}
+                    placeholder="texto (ex: Vermelho)"
+                  />
+                  <input
+                    className={inputClass}
+                    value={opt.description || ""}
+                    onChange={(e) => {
+                      const options = [...(b.options || [])];
+                      options[oi] = { ...options[oi], description: e.target.value };
+                      updateButton(i, { options });
+                    }}
+                    placeholder="descrição (opcional)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const options = (b.options || []).filter((_, idx) => idx !== oi);
+                      updateButton(i, { options });
+                    }}
+                    className="text-danger text-sm px-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => updateButton(i, { options: [...(b.options || []), { label: "", description: "" }] })}
+                className="text-xs text-accent mt-1"
+              >
+                + adicionar opção
+              </button>
+
+              <label className="block mt-3">
+                <span className="block text-xs text-muted mb-1">
+                  Mensagem enviada depois de escolher (use {"{selecionado}"} pra mostrar a opção)
+                </span>
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={b.output_template || ""}
+                  onChange={(e) => updateButton(i, { output_template: e.target.value })}
+                  placeholder="Você escolheu: {selecionado}"
+                />
+              </label>
+            </div>
+          )}
+
           <button type="button" onClick={() => removeButton(i)} className="text-sm text-danger">
             remover botão
           </button>
@@ -294,7 +489,7 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
           type="button"
           disabled={saving}
           onClick={onSave}
-          className="text-sm bg-accent text-bg font-semibold rounded-lg px-4 py-2"
+          className="text-sm bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-2 transition"
         >
           {saving ? "salvando…" : "Salvar comando"}
         </button>
@@ -442,17 +637,23 @@ export default function ComandosClient() {
   return (
     <main className="min-h-screen px-6 py-10 max-w-3xl mx-auto">
       <header className="flex items-center justify-between mb-8 gap-4">
-        <h1 className="font-display text-2xl font-bold">Comandos personalizados</h1>
+        <div className="flex items-center gap-3">
+          <NavDrawer />
+          <h1 className="font-display text-2xl font-bold">Comandos personalizados</h1>
+        </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
             disabled={deployingCommands}
             onClick={deployToDiscord}
-            className="text-sm bg-accent text-bg font-semibold rounded-lg px-4 py-1.5"
+            className="text-sm bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-semibold rounded-lg px-4 py-1.5 transition"
           >
             {deployingCommands ? "registrando…" : "Registrar no Discord"}
           </button>
-          <Link href="/dashboard" className="text-sm text-muted border border-border rounded-lg px-3 py-1.5">
+          <Link
+            href="/dashboard"
+            className="text-sm text-ink border border-border rounded-lg px-3 py-1.5 hover:border-accent hover:text-accent transition"
+          >
             voltar
           </Link>
         </div>
@@ -522,14 +723,17 @@ export default function ComandosClient() {
         </p>
 
         {editingCommand && (
-          <CommandEditor
-            command={editingCommand}
-            modals={modals}
-            onChange={setEditingCommand}
-            onSave={saveCommand}
-            onDelete={() => deleteCommand(editingCommand.id)}
-            saving={savingCommand}
-          />
+          <div className="grid md:grid-cols-[1fr_320px] gap-4 items-start">
+            <CommandEditor
+              command={editingCommand}
+              modals={modals}
+              onChange={setEditingCommand}
+              onSave={saveCommand}
+              onDelete={() => deleteCommand(editingCommand.id)}
+              saving={savingCommand}
+            />
+            <CommandPreview command={editingCommand} />
+          </div>
         )}
 
         {commands.map((c) => (

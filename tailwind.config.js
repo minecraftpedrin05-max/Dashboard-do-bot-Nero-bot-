@@ -14,6 +14,8 @@ module.exports = {
         rose: "#F0729A",
         success: "#4ADE80",
         danger: "#F0575A",
+        accent: "#5865F2",
+        "accent-hover": "#4752C4",
       },
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],

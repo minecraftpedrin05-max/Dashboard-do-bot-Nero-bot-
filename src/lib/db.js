@@ -92,6 +92,20 @@ db.exec(`
   );
 `);
 
+// Migração leve: adiciona colunas novas em bancos já existentes (não quebra se já existirem)
+for (const stmt of [
+  "ALTER TABLE custom_command_buttons ADD COLUMN options_json TEXT",
+  "ALTER TABLE custom_command_buttons ADD COLUMN output_template TEXT",
+  "ALTER TABLE custom_command_buttons ADD COLUMN multi INTEGER DEFAULT 0",
+  "ALTER TABLE custom_commands ADD COLUMN is_public INTEGER DEFAULT 1",
+]) {
+  try {
+    db.exec(stmt);
+  } catch {
+    // coluna já existe, ok
+  }
+}
+
 // ---------- settings ----------
 
 export function getSettings(guildId) {
@@ -203,8 +217,8 @@ export function getCommandByName(guildId, name) {
 export function createCommand(guildId, data) {
   const info = db
     .prepare(
-      `INSERT INTO custom_commands (guild_id, name, description, title, body_text, image_url, color)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO custom_commands (guild_id, name, description, title, body_text, image_url, color, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       guildId,
@@ -213,14 +227,15 @@ export function createCommand(guildId, data) {
       data.title || "",
       data.body_text || "",
       data.image_url || null,
-      data.color || "#5865F2"
+      data.color || "#5865F2",
+      data.is_public === false ? 0 : 1
     );
   return info.lastInsertRowid;
 }
 
 export function updateCommand(id, data) {
   db.prepare(
-    `UPDATE custom_commands SET name=?, description=?, title=?, body_text=?, image_url=?, color=? WHERE id=?`
+    `UPDATE custom_commands SET name=?, description=?, title=?, body_text=?, image_url=?, color=?, is_public=? WHERE id=?`
   ).run(
     data.name,
     data.description || "",
@@ -228,6 +243,7 @@ export function updateCommand(id, data) {
     data.body_text || "",
     data.image_url || null,
     data.color || "#5865F2",
+    data.is_public === false ? 0 : 1,
     id
   );
 }
@@ -250,8 +266,9 @@ export function getCommandButton(id) {
 export function setCommandButtons(commandId, buttons) {
   db.prepare("DELETE FROM custom_command_buttons WHERE command_id = ?").run(commandId);
   const insert = db.prepare(
-    `INSERT INTO custom_command_buttons (command_id, label, style, emoji, action_type, modal_id, url, order_index)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO custom_command_buttons
+     (command_id, label, style, emoji, action_type, modal_id, url, order_index, options_json, output_template, multi)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   buttons.forEach((b, i) => {
     insert.run(
@@ -262,7 +279,10 @@ export function setCommandButtons(commandId, buttons) {
       b.action_type || "modal",
       b.modal_id || null,
       b.url || null,
-      i
+      i,
+      b.action_type === "select" ? JSON.stringify(b.options || []) : null,
+      b.action_type === "select" ? b.output_template || "" : null,
+      b.action_type === "select" && b.multi ? 1 : 0
     );
   });
 }

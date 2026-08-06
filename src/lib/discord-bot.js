@@ -10,6 +10,7 @@ import {
   EmbedBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
 } from "discord.js";
 import { commands } from "../bot/commands/index.js";
 import {
@@ -101,24 +102,56 @@ export async function startBot() {
           Danger: ButtonStyle.Danger,
         };
 
-        if (buttons.length > 0) {
-          const row = new ActionRowBuilder();
-          for (const b of buttons.slice(0, 5)) {
-            if (b.action_type === "link" && b.url) {
-              row.addComponents(new ButtonBuilder().setLabel(b.label).setStyle(ButtonStyle.Link).setURL(b.url));
-            } else {
-              row.addComponents(
-                new ButtonBuilder()
-                  .setCustomId(`cmdbtn_${b.id}`)
-                  .setLabel(b.label)
-                  .setStyle(STYLES[b.style] || ButtonStyle.Primary)
-              );
+        let row = new ActionRowBuilder();
+        for (const b of buttons) {
+          if (b.action_type === "select") {
+            // um select menu ocupa a linha inteira sozinho
+            if (row.components.length > 0) {
+              components.push(row);
+              row = new ActionRowBuilder();
             }
+            let options = [];
+            try {
+              options = JSON.parse(b.options_json || "[]");
+            } catch {
+              options = [];
+            }
+            if (options.length === 0) continue;
+            const menu = new StringSelectMenuBuilder()
+              .setCustomId(`cmdselect_${b.id}`)
+              .setPlaceholder(b.label || "Escolha uma opção")
+              .setMinValues(1)
+              .setMaxValues(b.multi ? Math.min(options.length, 25) : 1)
+              .addOptions(
+                options.slice(0, 25).map((o) => ({
+                  label: (o.label || "opção").slice(0, 100),
+                  value: (o.label || "opção").slice(0, 100),
+                  description: o.description ? o.description.slice(0, 100) : undefined,
+                }))
+              );
+            components.push(new ActionRowBuilder().addComponents(menu));
+          } else if (b.action_type === "link" && b.url) {
+            if (row.components.length >= 5) {
+              components.push(row);
+              row = new ActionRowBuilder();
+            }
+            row.addComponents(new ButtonBuilder().setLabel(b.label).setStyle(ButtonStyle.Link).setURL(b.url));
+          } else {
+            if (row.components.length >= 5) {
+              components.push(row);
+              row = new ActionRowBuilder();
+            }
+            row.addComponents(
+              new ButtonBuilder()
+                .setCustomId(`cmdbtn_${b.id}`)
+                .setLabel(b.label)
+                .setStyle(STYLES[b.style] || ButtonStyle.Primary)
+            );
           }
-          components.push(row);
         }
+        if (row.components.length > 0) components.push(row);
 
-        await interaction.reply({ embeds: [embed], components });
+        await interaction.reply({ embeds: [embed], components, ephemeral: cmd.is_public === 0 });
       } catch (err) {
         console.error("[bot] erro ao exibir comando:", err);
       }
@@ -190,6 +223,24 @@ export async function startBot() {
         await interaction.showModal(modalBuilder);
       } catch (err) {
         console.error("[bot] erro ao abrir formulário:", err);
+      }
+      return;
+    }
+
+    // Select menu de um comando personalizado -> monta a mensagem de saída
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("cmdselect_")) {
+      try {
+        const buttonId = Number(interaction.customId.replace("cmdselect_", ""));
+        const button = getCommandButton(buttonId);
+        if (!button) return;
+
+        const selected = interaction.values.join(", ");
+        let output = button.output_template || "Você escolheu: {selecionado}";
+        output = output.replaceAll("{selecionado}", selected);
+
+        await interaction.reply({ content: output, ephemeral: true });
+      } catch (err) {
+        console.error("[bot] erro ao processar select:", err);
       }
       return;
     }

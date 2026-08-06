@@ -21,7 +21,13 @@ export async function GET() {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const commands = listCommands(session.userGuild).map((c) => ({ ...c, buttons: listCommandButtons(c.id) }));
+  const commands = listCommands(session.userGuild).map((c) => ({
+    ...c,
+    buttons: listCommandButtons(c.id).map((b) => ({
+      ...b,
+      options: b.options_json ? JSON.parse(b.options_json) : [],
+    })),
+  }));
   return Response.json({ commands });
 }
 

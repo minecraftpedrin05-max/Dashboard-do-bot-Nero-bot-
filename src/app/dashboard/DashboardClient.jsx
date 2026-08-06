@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import NavDrawer from "./NavDrawer.jsx";
 
 function Switch({ on, onChange, label, variant = "amber" }) {
   return (
@@ -78,6 +79,7 @@ export default function DashboardClient({ userName }) {
     <main className="min-h-screen px-6 py-10 max-w-3xl mx-auto">
       <header className="flex items-center justify-between mb-10 gap-4">
         <div className="flex items-center gap-3">
+          <NavDrawer />
           <span className="dot" style={{ background: data.online ? "#4ADE80" : "#F0575A" }} />
           <div>
             <h1 className="font-display text-2xl font-bold leading-none">{botName}</h1>
@@ -91,21 +93,21 @@ export default function DashboardClient({ userName }) {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/comandos"
-            className="text-sm text-ink border border-border rounded-lg px-3 py-1.5 hover:border-ink/30 transition"
+            className="text-sm text-ink border border-border rounded-lg px-3 py-1.5 hover:border-accent hover:text-accent transition hidden sm:inline-block"
           >
             Comandos
           </Link>
           <span className="text-sm text-muted hidden sm:inline">{userName}</span>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="text-sm text-muted border border-border rounded-lg px-3 py-1.5 hover:text-ink hover:border-ink/30 transition"
+            className="text-sm text-white bg-danger/90 hover:bg-danger rounded-lg px-3 py-1.5 font-medium transition"
           >
             Sair
           </button>
         </div>
       </header>
 
-      <section className="bg-surface border border-border rounded-2xl p-6 mb-6">
+      <section id="persona" className="bg-surface border border-border rounded-2xl p-6 mb-6 scroll-mt-6">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-semibold">Persona</h2>
@@ -123,7 +125,7 @@ export default function DashboardClient({ userName }) {
         </div>
       </section>
 
-      <section className="bg-surface border border-border rounded-2xl p-6 mb-6">
+      <section id="boas-vindas" className="bg-surface border border-border rounded-2xl p-6 mb-6 scroll-mt-6">
         <h2 className="font-display text-lg font-semibold mb-4">Boas-vindas</h2>
         <label className="block text-sm text-muted mb-1">Canal</label>
         <select
@@ -151,7 +153,7 @@ export default function DashboardClient({ userName }) {
         />
       </section>
 
-      <section className="bg-surface border border-border rounded-2xl p-6 mb-6">
+      <section id="moderacao" className="bg-surface border border-border rounded-2xl p-6 mb-6 scroll-mt-6">
         <h2 className="font-display text-lg font-semibold mb-4">Moderação</h2>
         <label className="block text-sm text-muted mb-1">Canal de log</label>
         <select
@@ -182,7 +184,7 @@ export default function DashboardClient({ userName }) {
         )}
       </section>
 
-      <section className="bg-surface border border-border rounded-2xl p-6">
+      <section id="niveis" className="bg-surface border border-border rounded-2xl p-6 scroll-mt-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <div>
             <h2 className="font-display text-lg font-semibold">Níveis (XP)</h2>
