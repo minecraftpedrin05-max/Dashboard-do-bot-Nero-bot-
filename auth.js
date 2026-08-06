@@ -17,12 +17,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, account }) {
       if (account?.access_token) {
         try {
-          const userGuild = getUserGuild(token.sub);
-          console.log("[DEBUG] token.sub:", token.sub);
-          console.log("[DEBUG] userGuild retornado do banco:", userGuild);
+          // token.sub é um UUID aleatório gerado pelo NextAuth (sem adapter de banco).
+          // O ID real da conta Discord (o mesmo salvo pelo comando /colocar) é
+          // account.providerAccountId — é esse que precisamos usar.
+          const discordId = account.providerAccountId;
+          token.discordId = discordId;
+
+          const userGuild = getUserGuild(discordId);
 
           if (!userGuild) {
-            console.log("[DEBUG] userGuild é null/vazio -> acesso negado aqui");
             token.isServerAdmin = false;
             token.userGuild = null;
             return token;
@@ -31,18 +34,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const res = await fetch("https://discord.com/api/users/@me/guilds", {
             headers: { Authorization: `Bearer ${account.access_token}` },
           });
-          console.log("[DEBUG] status da resposta /users/@me/guilds:", res.status);
           const guilds = await res.json();
-          console.log("[DEBUG] guilds retornados:", JSON.stringify(guilds).slice(0, 2000));
-
           const target = Array.isArray(guilds) ? guilds.find((g) => g.id === userGuild) : null;
-          console.log("[DEBUG] servidor alvo encontrado na lista?", !!target);
-          if (target) console.log("[DEBUG] permissions do target:", target.permissions, "owner:", target.owner);
 
           const perms = target ? BigInt(target.permissions) : 0n;
           token.isServerAdmin =
             !!target && ((perms & MANAGE_GUILD) === MANAGE_GUILD || (perms & ADMINISTRATOR) === ADMINISTRATOR);
-          console.log("[DEBUG] isServerAdmin final:", token.isServerAdmin);
           token.userGuild = userGuild;
         } catch (err) {
           console.error("[auth] falha ao checar permissões:", err);
