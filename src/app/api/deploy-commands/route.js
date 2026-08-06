@@ -17,11 +17,9 @@ export async function POST(req) {
   }
 
   try {
-    // Filtra só os comandos /padrão que não são personalizados
-    // (os comandos /comando, /colocar, /ban, etc)
-    const builtInCommands = commands
-      .filter((c) => !["comando"].includes(c.data.name))
-      .map((c) => c.data.toJSON());
+    // Registra todos os comandos embutidos do bot (incluindo /comando,
+    // que é o que mostra a lista de comandos personalizados)
+    const builtInCommands = commands.map((c) => c.data.toJSON());
 
     const rest = new REST({ version: "10" }).setToken(BOT_TOKEN);
 
