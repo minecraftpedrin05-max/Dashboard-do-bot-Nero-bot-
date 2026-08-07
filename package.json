@@ -1,0 +1,30 @@
+{
+  "name": "meu-bot-discord",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "deploy-commands": "node src/bot/deploy-commands.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "discord.js": "^14.16.3",
+    "zlib-sync": "^0.1.9",
+    "dotenv": "^16.4.5",
+    "next": "^16.0.0",
+    "next-auth": "beta",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
