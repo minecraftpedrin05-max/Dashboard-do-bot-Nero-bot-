@@ -252,6 +252,35 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
     onChange({ ...command, buttons });
   }
 
+  function updateTicketContainer(i, patch) {
+    const buttons = command.buttons.map((b, idx) => {
+      if (idx !== i) return b;
+      const current = b.ticket_container || { enabled: false, title: "", description: "", buttons: [] };
+      return { ...b, ticket_container: { ...current, ...patch } };
+    });
+    onChange({ ...command, buttons });
+  }
+
+  function addTicketContainerButton(i) {
+    const b = command.buttons[i];
+    const current = b.ticket_container || { enabled: false, title: "", description: "", buttons: [] };
+    const nextButtons = [...(current.buttons || []), { type: "call_admin", label: "Chamar ADM", role_id: "", text: "" }];
+    updateTicketContainer(i, { buttons: nextButtons });
+  }
+
+  function updateTicketContainerButton(i, bi, patch) {
+    const b = command.buttons[i];
+    const current = b.ticket_container || { enabled: false, title: "", description: "", buttons: [] };
+    const nextButtons = current.buttons.map((cb, idx) => (idx === bi ? { ...cb, ...patch } : cb));
+    updateTicketContainer(i, { buttons: nextButtons });
+  }
+
+  function removeTicketContainerButton(i, bi) {
+    const b = command.buttons[i];
+    const current = b.ticket_container || { enabled: false, title: "", description: "", buttons: [] };
+    updateTicketContainer(i, { buttons: current.buttons.filter((_, idx) => idx !== bi) });
+  }
+
   function addButton() {
     onChange({
       ...command,
@@ -444,6 +473,93 @@ function CommandEditor({ command, modals, onChange, onSave, onDelete, saving }) 
                   placeholder="Olá {user}, um membro da equipe vai te atender em breve!"
                 />
               </label>
+
+              <label className="flex items-center gap-2 text-xs text-muted mt-3 mb-2">
+                <input
+                  type="checkbox"
+                  checked={!!b.ticket_container?.enabled}
+                  onChange={(e) => updateTicketContainer(i, { enabled: e.target.checked })}
+                />
+                Adicionar um conteúdo extra dentro do ticket (embed + botões, ex: "Chamar ADM")
+              </label>
+
+              {b.ticket_container?.enabled && (
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <label className="block">
+                    <span className="block text-xs text-muted mb-1">Título do conteúdo extra</span>
+                    <input
+                      className={inputClass}
+                      value={b.ticket_container?.title || ""}
+                      onChange={(e) => updateTicketContainer(i, { title: e.target.value })}
+                      placeholder="Ex: Precisa de ajuda?"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="block text-xs text-muted mb-1">Texto do conteúdo extra</span>
+                    <textarea
+                      className={inputClass}
+                      rows={2}
+                      value={b.ticket_container?.description || ""}
+                      onChange={(e) => updateTicketContainer(i, { description: e.target.value })}
+                      placeholder="Ex: Use os botões abaixo se precisar de algo específico."
+                    />
+                  </label>
+
+                  <div className="space-y-2">
+                    <span className="block text-xs text-muted">Botões dentro do ticket</span>
+                    {(b.ticket_container?.buttons || []).map((cb, bi) => (
+                      <div key={bi} className="border border-border rounded-lg p-2 space-y-2">
+                        <div className="flex gap-2">
+                          <select
+                            className={inputClass}
+                            value={cb.type}
+                            onChange={(e) => updateTicketContainerButton(i, bi, { type: e.target.value })}
+                          >
+                            <option value="call_admin">Chamar ADM (menciona um cargo)</option>
+                            <option value="text">Mostrar um texto fixo</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => removeTicketContainerButton(i, bi)}
+                            className="text-xs text-danger px-2 border border-border rounded-lg"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                        <input
+                          className={inputClass}
+                          value={cb.label || ""}
+                          onChange={(e) => updateTicketContainerButton(i, bi, { label: e.target.value })}
+                          placeholder="Texto do botão (ex: Chamar ADM)"
+                        />
+                        {cb.type === "call_admin" ? (
+                          <input
+                            className={inputClass}
+                            value={cb.role_id || ""}
+                            onChange={(e) => updateTicketContainerButton(i, bi, { role_id: e.target.value })}
+                            placeholder="ID do cargo de admin a ser mencionado"
+                          />
+                        ) : (
+                          <textarea
+                            className={inputClass}
+                            rows={2}
+                            value={cb.text || ""}
+                            onChange={(e) => updateTicketContainerButton(i, bi, { text: e.target.value })}
+                            placeholder="Texto que aparece quando a pessoa clicar"
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addTicketContainerButton(i)}
+                      className="text-xs rounded-lg px-2.5 py-1 border border-border text-muted"
+                    >
+                      + Adicionar botão
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

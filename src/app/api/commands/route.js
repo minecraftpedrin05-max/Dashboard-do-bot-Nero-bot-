@@ -26,6 +26,7 @@ export async function GET() {
     buttons: listCommandButtons(c.id).map((b) => ({
       ...b,
       options: b.options_json ? JSON.parse(b.options_json) : [],
+      ticket_container: b.ticket_container_json ? JSON.parse(b.ticket_container_json) : null,
     })),
   }));
   return Response.json({ commands });

@@ -32,7 +32,13 @@ import { generateAIReply } from "./ai.js";
 // Cria o canal privado de ticket (mesma lógica usada pelo botão "Ticket").
 // Isso é código determinístico e controlado — não é a IA decidindo executar
 // isso, é o admin que liga essa opção no dashboard para o botão de IA.
-async function createTicketChannel(interaction, welcomeTemplate) {
+//
+// `containerConfig` (opcional) é o conteúdo extra configurado pelo admin
+// (título + descrição + botões como "Chamar ADM") que é enviado como uma
+// segunda mensagem dentro do ticket. `commandButtonId` é o id do botão no
+// banco, usado pra reconstruir a config quando algum desses botões extras
+// for clicado depois.
+async function createTicketChannel(interaction, welcomeTemplate, containerConfig, commandButtonId) {
   const safeName = interaction.user.username
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "-")
@@ -65,6 +71,24 @@ async function createTicketChannel(interaction, welcomeTemplate) {
   );
 
   await channel.send({ content: welcome, components: [closeRow] });
+
+  if (containerConfig?.enabled && (containerConfig.title || containerConfig.description || containerConfig.buttons?.length)) {
+    const embed = new EmbedBuilder().setColor(0x5865f2);
+    if (containerConfig.title) embed.setTitle(containerConfig.title.slice(0, 256));
+    if (containerConfig.description) embed.setDescription(containerConfig.description.slice(0, 4000));
+
+    const extraButtons = (containerConfig.buttons || []).slice(0, 5).map((cb, idx) =>
+      new ButtonBuilder()
+        .setCustomId(`ticketextra_${commandButtonId}_${idx}_${channel.id}`)
+        .setLabel((cb.label || "Botão").slice(0, 80))
+        .setStyle(cb.type === "call_admin" ? ButtonStyle.Danger : ButtonStyle.Secondary)
+    );
+
+    const payload = { embeds: [embed] };
+    if (extraButtons.length) payload.components = [new ActionRowBuilder().addComponents(extraButtons)];
+    await channel.send(payload);
+  }
+
   return channel;
 }
 
@@ -279,7 +303,8 @@ export async function startBot() {
         // Botão de ticket: cria um canal privado (só a pessoa + admins veem)
         if (button.action_type === "ticket") {
           await interaction.deferReply({ ephemeral: true });
-          const channel = await createTicketChannel(interaction, button.output_template);
+          const containerConfig = button.ticket_container_json ? JSON.parse(button.ticket_container_json) : null;
+          const channel = await createTicketChannel(interaction, button.output_template, containerConfig, button.id);
           await interaction.editReply({ content: `✅ Ticket criado: <#${channel.id}>` });
           return;
         }
@@ -312,6 +337,44 @@ export async function startBot() {
         await interaction.showModal(modalBuilder);
       } catch (err) {
         console.error("[bot] erro ao abrir formulário:", err);
+      }
+      return;
+    }
+
+    // Botão extra dentro de um ticket (ex: "Chamar ADM" ou texto fixo),
+    // configurado pelo admin no dashboard. Só quem tem acesso ao canal do
+    // ticket (a pessoa dona + quem já pode ver) consegue clicar.
+    if (interaction.isButton() && interaction.customId.startsWith("ticketextra_")) {
+      try {
+        const [, commandButtonId, idxStr] = interaction.customId.split("_");
+        const canView = interaction.channel?.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel);
+        const isAdmin = interaction.member?.permissions?.has(PermissionFlagsBits.Administrator);
+        if (!canView && !isAdmin) {
+          await interaction.reply({ content: "Você não pode usar esse botão aqui.", ephemeral: true });
+          return;
+        }
+
+        const button = getCommandButton(Number(commandButtonId));
+        const config = button?.ticket_container_json ? JSON.parse(button.ticket_container_json) : null;
+        const cb = config?.buttons?.[Number(idxStr)];
+        if (!cb) {
+          await interaction.reply({ content: "Esse botão não está mais configurado.", ephemeral: true });
+          return;
+        }
+
+        if (cb.type === "call_admin") {
+          if (!cb.role_id) {
+            await interaction.reply({ content: "⚠️ Nenhum cargo de admin foi configurado pra esse botão.", ephemeral: true });
+            return;
+          }
+          await interaction.reply({
+            content: `<@&${cb.role_id}> ${interaction.user} está chamando a administração neste ticket.`,
+          });
+        } else {
+          await interaction.reply({ content: cb.text || "Sem conteúdo configurado.", ephemeral: true });
+        }
+      } catch (err) {
+        console.error("[bot] erro no botão extra do ticket:", err);
       }
       return;
     }
