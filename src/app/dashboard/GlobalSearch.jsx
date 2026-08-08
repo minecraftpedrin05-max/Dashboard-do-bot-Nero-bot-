@@ -18,6 +18,8 @@ const INDEX = [
   { label: "Comandos personalizados", href: "/dashboard/comandos", group: "Ferramentas" },
   { label: "Configurações", href: "/dashboard/configuracoes", group: "Ferramentas" },
   { label: "Restaurar padrão", href: "/dashboard/configuracoes", group: "Ferramentas" },
+  { label: "Logs", href: "/dashboard/logs", group: "Ferramentas" },
+  { label: "Exportar logs", href: "/dashboard/logs", group: "Ferramentas" },
 ];
 
 export default function GlobalSearch() {

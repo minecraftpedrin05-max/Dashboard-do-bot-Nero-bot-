@@ -16,6 +16,9 @@ const DEFAULT_SETTINGS = {
   welcome_message: "",
   mod_log_channel_id: "",
   xp_enabled: true,
+  autorole_id: "",
+  suggestions_channel_id: "",
+  counter_channel_id: "",
 };
 
 const inputClass =
@@ -53,6 +56,9 @@ export default function ConfiguracoesClient() {
           welcome_message: json.settings.welcome_message || "",
           mod_log_channel_id: json.settings.mod_log_channel_id || "",
           xp_enabled: !!json.settings.xp_enabled,
+          autorole_id: json.settings.autorole_id || "",
+          suggestions_channel_id: json.settings.suggestions_channel_id || "",
+          counter_channel_id: json.settings.counter_channel_id || "",
         });
       });
   }, []);
@@ -156,6 +162,72 @@ export default function ConfiguracoesClient() {
               {data.channels.map((c) => (
                 <option key={c.id} value={c.id}>
                   #{c.name}
+                </option>
+              ))}
+            </select>
+          </Option>
+        ),
+      },
+      {
+        id: "autorole",
+        label: "Autorole",
+        match: "autorole cargo automatico entrar",
+        content: (
+          <Option title="Cargo automático" description="Dado automaticamente pra quem entra no servidor.">
+            <select
+              className={inputClass}
+              value={form.autorole_id}
+              onChange={(e) => save({ autorole_id: e.target.value })}
+            >
+              <option value="">Desativado</option>
+              {(data.roles || []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </Option>
+        ),
+      },
+      {
+        id: "sugestoes",
+        label: "Sugestões",
+        match: "sugestoes sugestao ideias",
+        content: (
+          <Option title="Canal de sugestões" description="Onde as sugestões enviadas com /sugestao aparecem, com votação 👍👎.">
+            <select
+              className={inputClass}
+              value={form.suggestions_channel_id}
+              onChange={(e) => save({ suggestions_channel_id: e.target.value })}
+            >
+              <option value="">Desativado</option>
+              {data.channels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  #{c.name}
+                </option>
+              ))}
+            </select>
+          </Option>
+        ),
+      },
+      {
+        id: "contador",
+        label: "Contador de membros",
+        match: "contador membros counter voz",
+        content: (
+          <Option
+            title="Canal contador"
+            description="Um canal de voz que mostra o total de membros no nome. Atualiza a cada 10 minutos (limite do Discord)."
+          >
+            <select
+              className={inputClass}
+              value={form.counter_channel_id}
+              onChange={(e) => save({ counter_channel_id: e.target.value })}
+            >
+              <option value="">Desativado</option>
+              {(data.voiceChannels || []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  🔊 {c.name}
                 </option>
               ))}
             </select>

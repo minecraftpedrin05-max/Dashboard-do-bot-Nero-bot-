@@ -15,6 +15,13 @@ import {
   IconSettings,
 } from "./Icons.jsx";
 
+// Ícone simples de lista/log, só usado aqui
+const IconList = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+  </svg>
+);
+
 // Itens agrupados por categoria. "hash" identifica seções dentro de
 // /dashboard; itens sem hash são páginas próprias.
 const GROUPS = [
@@ -33,6 +40,7 @@ const GROUPS = [
     items: [
       { href: "/dashboard/comandos", label: "Comandos personalizados", hash: "", icon: IconTerminal },
       { href: "/dashboard/configuracoes", label: "Configurações", hash: "", icon: IconSettings },
+      { href: "/dashboard/logs", label: "Logs", hash: "", icon: IconList },
     ],
   },
 ];
