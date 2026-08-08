@@ -101,6 +101,14 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_activity_log_guild ON activity_log (guild_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS economy (
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    balance INTEGER NOT NULL DEFAULT 0,
+    last_daily INTEGER,
+    PRIMARY KEY (guild_id, user_id)
+  );
 `);
 
 // Migração leve: adiciona colunas novas em bancos já existentes (não quebra se já existirem)
@@ -433,3 +441,67 @@ export function getActivityLogAll(guildId, { type, q } = {}) {
 }
 
 export default db;
+
+// --- Economia --------------------------------------------------------------
+// Sistema simples: saldo que cresce conversando (com cooldown, controlado no
+// bot) + /diario (recompensa a cada 24h) + /transferir entre membros.
+const DAILY_REWARD = 100;
+const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+function ensureEconomyRow(guildId, userId) {
+  db.prepare("INSERT OR IGNORE INTO economy (guild_id, user_id, balance) VALUES (?, ?, 0)").run(guildId, userId);
+}
+
+export function getBalance(guildId, userId) {
+  ensureEconomyRow(guildId, userId);
+  return db.prepare("SELECT balance FROM economy WHERE guild_id = ? AND user_id = ?").get(guildId, userId).balance;
+}
+
+export function addBalance(guildId, userId, amount) {
+  ensureEconomyRow(guildId, userId);
+  db.prepare("UPDATE economy SET balance = balance + ? WHERE guild_id = ? AND user_id = ?").run(
+    amount,
+    guildId,
+    userId
+  );
+  return getBalance(guildId, userId);
+}
+
+// Retorna { success: true, amount, newBalance } ou { success: false, remainingMs }
+export function claimDaily(guildId, userId) {
+  ensureEconomyRow(guildId, userId);
+  const row = db.prepare("SELECT balance, last_daily FROM economy WHERE guild_id = ? AND user_id = ?").get(
+    guildId,
+    userId
+  );
+  const now = Date.now();
+
+  if (row.last_daily && now - row.last_daily < DAILY_COOLDOWN_MS) {
+    return { success: false, remainingMs: DAILY_COOLDOWN_MS - (now - row.last_daily) };
+  }
+
+  db.prepare("UPDATE economy SET balance = balance + ?, last_daily = ? WHERE guild_id = ? AND user_id = ?").run(
+    DAILY_REWARD,
+    now,
+    guildId,
+    userId
+  );
+  return { success: true, amount: DAILY_REWARD, newBalance: row.balance + DAILY_REWARD };
+}
+
+// Retorna { success: true, fromBalance, toBalance } ou { success: false, reason }
+export function transferBalance(guildId, fromUserId, toUserId, amount) {
+  if (amount <= 0) return { success: false, reason: "invalid_amount" };
+  const fromBalance = getBalance(guildId, fromUserId);
+  if (fromBalance < amount) return { success: false, reason: "insufficient_funds" };
+
+  addBalance(guildId, fromUserId, -amount);
+  const toBalance = addBalance(guildId, toUserId, amount);
+  return { success: true, fromBalance: fromBalance - amount, toBalance };
+}
+
+export function getEconomyLeaderboard(guildId, limit = 10) {
+  return db
+    .prepare("SELECT user_id, balance FROM economy WHERE guild_id = ? ORDER BY balance DESC LIMIT ?")
+    .all(guildId, limit);
+}

@@ -27,6 +27,7 @@ import {
   setUserGuild,
   getUserGuild,
   logActivity,
+  addBalance,
 } from "./db.js";
 import { generateAIReply } from "./ai.js";
 
@@ -520,21 +521,30 @@ export async function startBot() {
   });
 
   // Ganho de XP por mensagem (respeita o toggle do dashboard)
+  const economyCooldown = new Map(); // userId -> timestamp da última moeda ganha
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guild) return;
 
     const settings = getSettings(message.guild.id);
-    if (!settings.xp_enabled) return;
+    if (settings.xp_enabled) {
+      const gain = Math.floor(Math.random() * 8) + 4;
+      const result = addXp(message.guild.id, message.author.id, gain);
 
-    const gain = Math.floor(Math.random() * 8) + 4;
-    const result = addXp(message.guild.id, message.author.id, gain);
+      if (result.leveledUp) {
+        const text =
+          settings.persona === "feminino"
+            ? `🎉 ${message.author} subiu pro nível **${result.level}**! Arrasou!`
+            : `🎉 ${message.author} subiu pro nível **${result.level}**! Mandou bem!`;
+        message.channel.send(text).catch(() => {});
+      }
+    }
 
-    if (result.leveledUp) {
-      const text =
-        settings.persona === "feminino"
-          ? `🎉 ${message.author} subiu pro nível **${result.level}**! Arrasou!`
-          : `🎉 ${message.author} subiu pro nível **${result.level}**! Mandou bem!`;
-      message.channel.send(text).catch(() => {});
+    // Moedas: 1 a cada 60s por usuário, pra não virar spam-pra-farmar
+    const key = `${message.guild.id}:${message.author.id}`;
+    const now = Date.now();
+    if (!economyCooldown.has(key) || now - economyCooldown.get(key) > 60_000) {
+      economyCooldown.set(key, now);
+      addBalance(message.guild.id, message.author.id, Math.floor(Math.random() * 5) + 1);
     }
   });
 

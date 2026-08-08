@@ -21,6 +21,10 @@ import serverinfo from "./misc/serverinfo.js";
 import enquete from "./community/enquete.js";
 import sugestao from "./community/sugestao.js";
 
+import saldo from "./economy/saldo.js";
+import diario from "./economy/diario.js";
+import transferir from "./economy/transferir.js";
+
 export const commands = [
   ban,
   kick,
@@ -39,4 +43,7 @@ export const commands = [
   serverinfo,
   enquete,
   sugestao,
+  saldo,
+  diario,
+  transferir,
 ];
